@@ -75,7 +75,8 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import request from '@/utils/request'
+import { useRouter } from 'vue-router'
 
 const form = reactive({
 	username: '',
@@ -83,6 +84,7 @@ const form = reactive({
 })
 const isSubmitting = ref(false)
 const errorMessage = ref('')
+const router = useRouter()
 
 const handleSubmit = async () => {
 	errorMessage.value = ''
@@ -93,9 +95,18 @@ const handleSubmit = async () => {
 	}
 
 	isSubmitting.value = true
-	await new Promise((resolve) => window.setTimeout(resolve, 450))
-	isSubmitting.value = false
-	ElMessage.success('登录信息已提交')
+
+	request.post('/login', {
+		username: form.username,
+		password: form.password
+	}).then(resp => {
+		// 处理登录成功逻辑，例如保存 token
+		localStorage.setItem('token', resp.token)
+		router.push({ name: 'new-chat' })
+	}).catch(error => {
+		errorMessage.value = error.response?.data?.message || '登录失败'
+	})
+	
 }
 </script>
 

@@ -3,16 +3,20 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
 	{
 		path: '/',
-        name: 'index',
+		name: 'index',
 		component: () => import('@/views/dashboard/index.vue'),
 		meta: {
-			title: '门户首页'
+			title: '门户首页',
+			requiresAuth: true
 		}
 	},
 	{
 		path: '/login',
 		name: 'login',
 		component: () => import('@/views/login/index.vue'),
+		meta: {
+			requiresAuth: false
+		},
 	},
 	{
 		path: '/chat',
@@ -25,7 +29,8 @@ const routes = [
 				name: "new-chat",
 				component: () => import('@/views/chat/new_chat.vue'),
 				meta: {
-					title: '新建对话'
+					title: '新建对话',
+					requiresAuth: true
 				}
 			},
 			{
@@ -33,7 +38,8 @@ const routes = [
 				name: "history-chat",
 				component: () => import('@/views/chat/chat_lst.vue'),
 				meta: {
-					title: '历史对话'
+					title: '历史对话',
+					requiresAuth: true
 				}
 			}
 		]
@@ -49,7 +55,8 @@ const routes = [
 				name: "online-doc",
 				component: () => import('@/views/doc/online_doc.vue'),
 				meta: {
-					title: '在线文档'
+					title: '在线文档',
+					requiresAuth: true
 				}
 			}
 		]
@@ -65,7 +72,8 @@ const routes = [
 				name: "new-chat",
 				component: () => import('@/views/chat/new_chat.vue'),
 				meta: {
-					title: '新建对话'
+					title: '新建对话',
+					requiresAuth: true
 				}
 			},
 			{
@@ -73,7 +81,8 @@ const routes = [
 				name: "chat-list",
 				component: () => import('@/views/chat/chat_lst.vue'),
 				meta: {
-					title: '对话列表'
+					title: '对话列表',
+					requiresAuth: true
 				}
 			},
 			{
@@ -81,7 +90,8 @@ const routes = [
 				name: "file-list",
 				component: () => import('@/views/file/file_lst.vue'),
 				meta: {
-					title: '文件列表'
+					title: '文件列表',
+					requiresAuth: true
 				}
 			}
 		]
@@ -91,15 +101,17 @@ const routes = [
 		name: 'user-list',
 		component: () => import('@/views/user/user_lst.vue'),
 		meta: {
-			title: '用户列表'
+			title: '用户列表',
+			requiresAuth: true
 		}
 	},
 	{
 		path: '/:pathMatch(.*)*',
-        name: 'not-found',
+		name: 'not-found',
 		component: () => import('@/views/err_404.vue'),
 		meta: {
-			title: '页面未找到'
+			title: '页面未找到',
+			requiresAuth: true
 		}
 	}
 ]
@@ -107,6 +119,16 @@ const routes = [
 const router = createRouter({
 	history: createWebHistory(),
 	routes
+})
+
+router.beforeEach((to, from, next) => {
+	// 示例：检查是否登录
+	const isLogin = localStorage.getItem('token')
+	if (to.meta.requiresAuth && !isLogin) {
+		next('/login')
+	} else {
+		next()
+	}
 })
 
 export default router
