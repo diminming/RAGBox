@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"ragbox/config"
 	"time"
 )
 
-const (
-	URL_API_BAILIAN    = "https://llm-qmh1u0iznlorduyx.cn-beijing.maas.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding"
-	MODEL_NAME_BAILIAN = "qwen3.7-text-embedding"
-	API_KEY_BAILIAN    = "sk-896400710cc2412e9f6f1afe1447227b"
+var (
+	URL_API_BAILIAN    = config.Config.Model.Embedding.APIURL
+	MODEL_NAME_BAILIAN = config.Config.Model.Embedding.ModelName
+	API_KEY_BAILIAN    = config.Config.Model.Embedding.APIKey
 )
 
 type BailianEmbedding struct {

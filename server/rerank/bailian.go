@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"ragbox/config"
 	"time"
 )
 
-const (
-	URL_API_BAILIAN    = "https://llm-qmh1u0iznlorduyx.cn-beijing.maas.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank"
-	MODEL_NAME_BAILIAN = "qwen3-rerank"
-	API_KEY_BAILIAN    = "sk-896400710cc2412e9f6f1afe1447227b"
+var (
+	URL_API_BAILIAN    = config.Config.Model.Reranking.APIURL
+	MODEL_NAME_BAILIAN = config.Config.Model.Reranking.ModelName
+	API_KEY_BAILIAN    = config.Config.Model.Reranking.APIKey
 )
 
 type BailianRerank struct {

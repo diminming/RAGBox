@@ -7,12 +7,13 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"ragbox/config"
 	"time"
 )
 
-const (
-	API_KEY = "sk-468fc63962e447e88e98dec3600e1b6a"
-	URL     = "https://api.deepseek.com/chat/completions"
+var (
+	API_KEY = config.Config.Model.LLM.APIKey
+	URL     = config.Config.Model.LLM.APIURL
 	METHOD  = "POST"
 )
 
@@ -68,7 +69,7 @@ func Send2LLM(query string) (*LLMResponse, error) {
 			{Content: "你是一个有帮助的助手", Role: "system"},
 			{Content: query, Role: "user"},
 		},
-		Model:           "deepseek-v4-flash",
+		Model:           config.Config.Model.LLM.ModelName,
 		ReasoningEffort: "low",
 		MaxTokens:       4096,
 		Temperature:     1,
