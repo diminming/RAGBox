@@ -6,16 +6,18 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"ragbox/common"
 	. "ragbox/config"
 	"ragbox/embedding"
 	"ragbox/llm"
 	"ragbox/reader"
 	"ragbox/rerank"
-	"ragbox/store"
 	. "ragbox/store"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/google/uuid"
 
@@ -44,8 +46,21 @@ type ChatRequest struct {
 	EnableKbase bool   `json:"enableKbase"`
 }
 
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type User struct {
+	ID              int    `json:"id"`
+	Username        string `json:"username"`
+	Passwd          string `json:"password"`
+	CreateTimestamp int64  `json:"create_timestamp"`
+	UpdateTimestamp int64  `json:"update_timestamp"`
+}
+
 func getFileLst(ctx context.Context, pageNo, pageSize int) ([]*Document, error) {
-	rows, err := store.Store.Query(ctx, "select id, origin_filename, mimetype, create_timestamp, update_timestamp from documents order by update_timestamp desc, id desc limit ?, ?", pageNo*pageSize, pageSize)
+	rows, err := Store.Query(ctx, "select id, origin_filename, mimetype, create_timestamp, update_timestamp from documents order by update_timestamp desc, id desc limit ?, ?", pageNo*pageSize, pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +93,7 @@ func LstFile(c *gin.Context) {
 }
 
 func queryDocumentIdByFileId(ctx context.Context, fileId string) (string, error) {
-	row, err := store.Store.Query(ctx, "select doc_id from documents where id = ?", fileId)
+	row, err := Store.Query(ctx, "select doc_id from documents where id = ?", fileId)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +110,7 @@ func queryDocumentIdByFileId(ctx context.Context, fileId string) (string, error)
 }
 
 func querySegmentsByDocId(ctx context.Context, docId string) ([]string, error) {
-	return store.VectorStore.QueryContentsByDocID(ctx, "knowledgebase", docId)
+	return VectorStore.QueryContentsByDocID(ctx, "knowledgebase", docId)
 }
 
 func GetSegementLst(c *gin.Context) {
@@ -295,12 +310,98 @@ func fileHandler(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "upload success", "data": map[string]any{"documentId": documentId, "fname": file.Filename, "mimeType": mimeType, "length": file.Size}})
 }
 
+// HashPassword 使用 bcrypt 对密码进行加盐哈希
+func HashPassword(password string) (string, error) {
+	// GenerateFromPassword 自动生成盐值并进行哈希
+	// bcrypt.DefaultCost 是默认的计算权重（当前为 10），可根据服务器性能调整
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(bytes), err
+}
+
+// CheckPasswordHash 验证用户输入的明文密码与数据库中的哈希值是否匹配
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
+func FindUserWithUsername(c context.Context, username string) (*User, error) {
+	rows, err := Store.Query(c, "select id, username, passwd, create_timestamp, update_timestamp from users where username = ?", username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		var user User
+		if err := rows.Scan(&user.ID, &user.Username, &user.Passwd, &user.CreateTimestamp, &user.UpdateTimestamp); err != nil {
+			return nil, err
+		}
+		return &user, nil
+	}
+	return nil, nil
+}
+
+func genToken() string {
+	return uuid.New().String()
+}
+
+func loginSuccessHandler(user *User) (string, error) {
+	token := genToken()
+	value, err := common.JsonStringify(user)
+	if err != nil {
+		slog.Error("error on json stringify user", "error", err)
+		return "", err
+	}
+	GlobalCache.SetWithExpire(token, value, time.Minute*30) // 设置 token 过期时间为 30 分钟
+	return token, nil
+}
+
+func login(c *gin.Context) {
+	var req LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	user, err := FindUserWithUsername(c, req.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if user == nil || !CheckPasswordHash(req.Password, user.Passwd) {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid username or password",
+		})
+		return
+	}
+
+	// 处理登录逻辑，例如验证用户名和密码
+	token, err := loginSuccessHandler(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"msg":   "success",
+		"token": token,
+	})
+}
+
 func registerRouter(engine *gin.Engine) {
 	apiV1 := engine.Group("/api_v1")
 	apiV1.GET("/files", LstFile)
 	apiV1.POST("/chat", Chat)
 	apiV1.GET("/file/:fileid/segments", GetSegementLst)
 	apiV1.POST("/upload", fileHandler)
+	apiV1.POST("/login", login)
 }
 
 func NewRestfulServer(addr string) *RestfulServer {
