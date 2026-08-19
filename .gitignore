@@ -71,3 +71,5 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 server/config.yaml
+
+__debug_*
