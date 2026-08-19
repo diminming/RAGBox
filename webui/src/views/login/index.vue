@@ -102,7 +102,7 @@ const handleSubmit = async () => {
 	}).then(resp => {
 		// 处理登录成功逻辑，例如保存 token
 		localStorage.setItem('token', resp.token)
-		router.push({ name: 'new-chat' })
+		router.push({ name: 'index' })
 	}).catch(error => {
 		errorMessage.value = error.response?.data?.message || '登录失败'
 	})
