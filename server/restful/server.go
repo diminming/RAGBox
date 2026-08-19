@@ -395,13 +395,62 @@ func login(c *gin.Context) {
 	})
 }
 
+func AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		auth := c.GetHeader("Authorization")
+
+		if !strings.HasPrefix(auth, "Bearer ") {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "missing authorization token",
+			})
+			c.Abort()
+			return
+		}
+
+		token := strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid authorization token",
+			})
+			c.Abort()
+			return
+		}
+
+		userJSON, err := GlobalCache.Get(token)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "token expired or invalid",
+			})
+			c.Abort()
+			return
+		}
+
+		var user User
+		if err := common.JsonUnstringify(userJSON, &user); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid user session",
+			})
+			c.Abort()
+			return
+		}
+
+		c.Set("user", &user)
+		c.Set("user_id", user.ID)
+
+		c.Next()
+	}
+}
+
 func registerRouter(engine *gin.Engine) {
 	apiV1 := engine.Group("/api_v1")
-	apiV1.GET("/files", LstFile)
-	apiV1.POST("/chat", Chat)
-	apiV1.GET("/file/:fileid/segments", GetSegementLst)
-	apiV1.POST("/upload", fileHandler)
 	apiV1.POST("/login", login)
+
+	authenticated := apiV1.Group("")
+	authenticated.Use(AuthMiddleware())
+	authenticated.GET("/files", LstFile)
+	authenticated.POST("/chat", Chat)
+	authenticated.GET("/file/:fileid/segments", GetSegementLst)
+	authenticated.POST("/upload", fileHandler)
 }
 
 func NewRestfulServer(addr string) *RestfulServer {

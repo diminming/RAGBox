@@ -9,3 +9,7 @@ func JsonStringify(v any) (string, error) {
 	}
 	return string(bytes), nil
 }
+
+func JsonUnstringify(s string, v any) error {
+	return json.Unmarshal([]byte(s), v)
+}

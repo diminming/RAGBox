@@ -20,6 +20,14 @@ type Cache struct {
 	source *redis.Client
 }
 
+func (c *Cache) Get(key string) (string, error) {
+	val, err := c.source.Get(context.Background(), key).Result()
+	if err == redis.Nil {
+		return "", nil
+	}
+	return val, err
+}
+
 func (c *Cache) SetWithExpire(key string, value string, expiration time.Duration) error {
 	err := c.source.Set(context.Background(), key, value, expiration).Err()
 	return err
